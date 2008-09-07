@@ -1,4 +1,4 @@
-name = AmaKode
+name = Amakode
 type = transcode
 
 [Transcode]

@@ -7,3 +7,11 @@ Amokode Changelog
                 Fix problems with newer versions of mpg123 (kontakt@lombacher.net)
                 Add output support for wav.
 
+2008-09-07  Better logging of errors for debugging
+
+            Fix non-ascii tag handling
+
+            Fix bug preventing use by multiple users on the same machine;
+            include username in log file. Note this this is still not
+            secure against symlink attacks; log should be moved somewhere
+            safer.

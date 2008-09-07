@@ -4,3 +4,5 @@ To Do
 Automatic cacheing of transcoded files
 Multi-user support
 Configuration GUI
+Defense against symlink attacks in /tmp/
+Issue GUI warning if tagpy is not present

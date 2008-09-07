@@ -1,0 +1,20 @@
+Amakode is a script for Amarok to transcode music.
+
+It is written purely in Python and uses various external executables to do the grunt work.
+
+REQUIREMENTS
+------------
+
+* Python 2.4
+
+* tagpy (used to copy tags between transcoded files). Amakode will work without tagpy,
+  but its output will have no tags.
+
+LINKS
+-----
+
+Sourceforge project information at:
+    http://sourceforge.net/projects/amakode/
+
+SVN at:
+    http://sourceforge.net/svn/?group_id=238313

@@ -6,18 +6,12 @@
 # Depends on: Python 2.4
 #             tagpy (optional)
 #
-# Thanks to jeffpc@josefsipek.net, jens.zurheide@gmx.de,
-# tcuya from kde-apps.org, and kontakt@lombacher.net for patches & bug
-# reports.
-#
 # The only user servicable parts are the encode/decode (line 103) and the
 # number of concurrent jobs to run (line 225)
 #
 # The optional module tagpy (http://news.tiker.net/software/tagpy) is used 
 # for tag information processing. This allows for writing tags into the 
 # transcoded files.
-#
-# Mercurial repo available at http://www.dons.net.au/~darius/hgwebdir.cgi/amakode/
 #
 ############################################################################
 #
@@ -63,6 +57,8 @@ from logging.handlers import RotatingFileHandler
 import urllib
 import urlparse
 import re
+import traceback
+import pwd
 
 try:
     import tagpy
@@ -214,12 +210,16 @@ class TranscodeJob(object):
                             # passed in as the second option because a
                             # lot of programs don't parse options
                             # after their file list.
+                            if type(inf)==type(u''):
+                                inf = inf.encode('utf8')
+                            else:
+                                inf = str(inf)
                             if ('%s' in opt):
                                 opt = opt.replace('%s', inf)
                                 encoder.insert(1, opt)
                             else:
                                 encoder.insert(1, opt)
-                                encoder.insert(2, str(inf))
+                                encoder.insert(2, inf)
             finally:
                 pass
 
@@ -229,7 +229,9 @@ class TranscodeJob(object):
             self.encoder = subprocess.Popen(encoder, stdin=self.decoder.stdout, stdout=self.outfd, stderr=self.errfh)
             log.debug("Processes connected")
         except Exception, e:
-            log.debug("Failed to start - " + str(e))
+            log.debug("Failed to start")
+            for line in traceback.format_exc().split('\n'):
+                log.debug(line)
             self.errormsg = str(e)
             try:
                 os.unlink(self.outfname)
@@ -356,7 +358,11 @@ def initLog():
     log.setLevel(logging.DEBUG)
 
     # Log to this file
-    logfile = logging.handlers.RotatingFileHandler(filename = "/tmp/amakode.log",
+    try:
+        username = pwd.getpwuid(os.getuid())[0]
+    except KeyError:
+        username = 'nouser'
+    logfile = logging.handlers.RotatingFileHandler(filename = "/tmp/amakode-"+username+".log",
                                                    maxBytes = 10000, backupCount = 3)
 
     # And stderr
