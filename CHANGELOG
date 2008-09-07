@@ -1,0 +1,9 @@
+Amokode Changelog
+
+
+2008-09-07  First import from Daniel O'Connor at
+            http://www.kde-apps.org/content/show.php/AmaKode?content=48218
+            Changelog before that date says:
+                Fix problems with newer versions of mpg123 (kontakt@lombacher.net)
+                Add output support for wav.
+
