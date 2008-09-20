@@ -11,7 +11,8 @@ Amakode Changelog
 
             Fix non-ascii tag handling
 
-            Fix bug preventing use by multiple users on the same machine;
-            include username in log file. Note this this is still not
-            secure against symlink attacks; log should be moved somewhere
-            safer.
+            Log file are now written to the working directory prepared by amarok:
+            ~/.kde/share/apps/amarok/scripts-data/amakode.log
+            (previously they were written to /tmp/amakode.log;
+            this prevented use by multiple users on the same machine and
+            was vulnerable to symlink attacks)

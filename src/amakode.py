@@ -58,14 +58,13 @@ import urllib
 import urlparse
 import re
 import traceback
-import pwd
 
 try:
     import tagpy
     have_tagpy = True
 except ImportError, e:
     have_tagpy = False
-    
+
 class tagpywrap(dict):
     textfields = ['album', 'artist', 'title', 'comment', 'genre']
     numfields = ['year', 'track']
@@ -358,11 +357,7 @@ def initLog():
     log.setLevel(logging.DEBUG)
 
     # Log to this file
-    try:
-        username = pwd.getpwuid(os.getuid())[0]
-    except KeyError:
-        username = 'nouser'
-    logfile = logging.handlers.RotatingFileHandler(filename = "/tmp/amakode-"+username+".log",
+    logfile = logging.handlers.RotatingFileHandler(filename = os.path.join(os.getcwd(),'amakode.log'),
                                                    maxBytes = 10000, backupCount = 3)
 
     # And stderr
