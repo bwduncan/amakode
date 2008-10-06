@@ -303,11 +303,14 @@ class amaKode(object):
 
         #log.debug("Received notification: " + str(string))
 
-        if string.find("transcode") != -1:
+        if string.startswith("transcode"):
             self.transcode(str(string))
 
-        if string.find("quit") != -1:
+        if string.startswith("quit"):
             self.quit()
+
+        if string.startswith("configure"):
+            self.configure()
 
     def transcode(self, line):
         """ Called when requested to transcode a track """
@@ -337,6 +340,9 @@ class amaKode(object):
     def quit(self):
         log.debug("quitting")
         sys.exit()
+
+    def configure(self):
+        os.system("kdialog --title Amakode --msgbox \"Amakode can be configured using Amarok's media device settings.\"")
 
 ############################################################################
 
