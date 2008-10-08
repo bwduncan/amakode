@@ -58,6 +58,8 @@ import urllib
 import urlparse
 import re
 import traceback
+import time
+from optparse import OptionParser
 
 try:
     import tagpy
@@ -65,16 +67,61 @@ try:
 except ImportError, e:
     have_tagpy = False
 
+def main():
+    parser = OptionParser()
+    parser.add_option("--test",
+                    action="store_true", dest="test", default=False,
+                    help="run a test")
+    (options, args) = parser.parse_args()
+
+    initLog()
+    signal.signal(signal.SIGINT, onStop)
+    signal.signal(signal.SIGHUP, onStop)
+    signal.signal(signal.SIGTERM, onStop)
+
+    if options.test:
+        quick_test()
+    else:
+        # Run normal application
+        if True:
+            if not have_tagpy:
+                if os.path.exists('/var/lib/apt'):
+                    package = 'python-tagpy' # debian-based systems
+                else:
+                    package = 'tagpy' # rpm-based and gentoo
+                tagpymsg = 'Amakode can not find the tagpy library. Please install the '+package+' package, '
+                tagpymsg += 'otherwise any files copied to your media player will not have tags.'
+                
+                subprocess.call(['dcop','amarok','playlist','popupMessage',tagpymsg])
+        try:
+            app = amaKode(sys.argv)
+        except:
+            for line in traceback.format_exc().split('\n'):
+                log.debug(line)
+
+def quick_test():
+    # Quick test case
+    def reportJob(job):
+        log.debug('FINISHED %r, errormsg=%s'%(job,job.errormsg))
+        job.clean_up()
+    q = QueueMgr(reportJob)
+    j = TranscodeJob("file:test/test.mp3", "ogg")
+    q.add(j)
+    j2 = TranscodeJob("file:test/test2.mp3", "ogg")
+    q.add(j2)
+    while not q.isidle():
+        q.poll()
+        res = select.select([], [], [], 1)
+    log.debug("jobs all done")
+
 class tagpywrap(dict):
     textfields = ['album', 'artist', 'title', 'comment', 'genre']
     numfields = ['year', 'track']
     allfields = textfields + numfields
 
-    def __init__(self, url):
-        f = urllib.urlopen(url)
-
-        self.tagInfo = tagpy.FileRef(f.fp.name).tag()
-        f.close()
+    def __init__(self, filename):
+        log.debug("Reading tags from "+filename)
+        self.tagInfo = tagpy.FileRef(filename).tag()
 
         self['album'] = self.tagInfo.album.strip()
         self['artist'] = self.tagInfo.artist.strip()
@@ -95,9 +142,11 @@ class QueueMgr(object):
     queuedjobs = []
     activejobs = []
 
-    def __init__(self, callback = None, maxjobs = 2):
+    def __init__(self, callback = None):
         self.callback = callback
-        self.maxjobs = maxjobs
+
+        self.maxjobs = number_of_processors()
+        log.debug('Using %d concurrent jobs because it seems there are %d processors' % (self.maxjobs,self.maxjobs))
         pass
 
     def add(self, job):
@@ -106,7 +155,7 @@ class QueueMgr(object):
 
     def poll(self):
         """ Poll active jobs and check if we should make a new job active """
-        if (len(self.activejobs) == 0):
+        if len(self.activejobs) == 0:
             needajob = True
         else:
             needajob = False
@@ -165,98 +214,138 @@ class TranscodeJob(object):
         self.errormsg = None
         log.debug("Creating job")
         self.inurl = _inurl
-        self.tofmt = string.lower(_tofmt)
-        self.inext = string.lower(string.rsplit(self.inurl, ".", 1)[1])
-        if (self.inext in self.decode):
-            log.debug("can decode with " + str(self.decode[self.inext]))
-        else:
-            log.debug("unable to decode " + self.inext)
-            raise KeyError("no available decoder")
-
-        if (self.tofmt in self.encode):
-            log.debug("can encode with " + str(self.encode[self.tofmt]))
-        else:
-            log.debug("unable to encode " + self.tofmt)
-            raise KeyError("no available encoder")
+        self.tofmt = _tofmt.lower()
+        self.inext = os.path.splitext(self.inurl)[1].lstrip('.').lower()
+        self._files_to_clean_up_on_success = []
+        self._files_to_clean_up_on_error = []
 
     def start(self):
         log.debug("Starting job")
         try:
-            self.inputfile = urllib.urlopen(self.inurl)
-            self.outfd, self.outfname = tempfile.mkstemp(prefix="transcode-", suffix="." + self.tofmt)
-            #self.outfname = string.join(string.rsplit(self.inurl, ".")[:-1] + [self.tofmt], ".")
-
-            self.errfh, self.errfname = tempfile.mkstemp(prefix="transcode-", suffix=".log")
-            self.outurl = urlparse.urlunsplit(["file", None, self.outfname, None, None])
-            log.debug("Outputting to " + self.outfname + " " + self.outurl + ")")
-            log.debug("Errors to " + self.errfname)
-
-            # assemble command line for encoder
-            encoder = []
-            encoder += self.encode[self.tofmt]
-
-            try:
-                if (have_tagpy and self.tofmt in self.tagopt):
-                    taginfo = tagpywrap(self.inurl)
-                    for f in taginfo.allfields:
-                        if (f in taginfo and f in self.tagopt[self.tofmt]):
-                            inf = taginfo[f]
-                            opt = self.tagopt[self.tofmt][f]
-                            log.debug("  %s = %s %s" % (f, opt, inf))
-                            # If we have a substitution, make it. If
-                            # not append the info as a separate
-                            # arg. Note that the tag options are
-                            # passed in as the second option because a
-                            # lot of programs don't parse options
-                            # after their file list.
-                            if type(inf)==type(u''):
-                                inf = inf.encode('utf8')
-                            else:
-                                inf = str(inf)
-                            if ('%s' in opt):
-                                opt = opt.replace('%s', inf)
-                                encoder.insert(1, opt)
-                            else:
-                                encoder.insert(1, opt)
-                                encoder.insert(2, inf)
-            finally:
-                pass
-
-            log.debug("decoder -> " + str(self.decode[self.inext]))
-            log.debug("encoder -> " + str(encoder))
-            self.decoder = subprocess.Popen(self.decode[self.inext], stdin=self.inputfile, stdout=subprocess.PIPE, stderr=self.errfh)
-            self.encoder = subprocess.Popen(encoder, stdin=self.decoder.stdout, stdout=self.outfd, stderr=self.errfh)
-            log.debug("Processes connected")
-        except Exception, e:
+            self.check_codecs()
+            self.prepare_files()
+            self.start_codec()
+        except:
             log.debug("Failed to start")
             for line in traceback.format_exc().split('\n'):
                 log.debug(line)
-            self.errormsg = str(e)
-            try:
-                os.unlink(self.outfname)
-            except:
-                pass
+            self.errormsg = str(sys.exc_info()[1])
+
+    def check_codecs(self):
+        try:
+            decoder = self.decode[self.inext]
+        except KeyError:
+            log.debug("unable to decode " + self.inext)
+            raise KeyError("no available decoder for "+self.inext)
+        else:
+            decoder = decoder[0]
+            if is_on_path(decoder):
+                log.debug("can decode with " + decoder)
+            else:
+                raise KeyError("It seems you do not have "+decoder+" installed, which is needed to decode "+self.inext+" files. Please install it using your package manager.")
+
+        try:
+            encoder = self.encode[self.tofmt]
+        except KeyError:
+            log.debug("unable to encode " + self.tofmt)
+            raise KeyError("no available encoder for "+self.tofmt)
+        else:
+            encoder = encoder[0]
+            if is_on_path(encoder):
+                log.debug("can encode with " + encoder)
+            else:
+                raise KeyError("It seems you do not have "+encoder+" installed, which is needed to encode "+self.tofmt+" files. Please install it using your package manager.")
+
+    def prepare_files(self):
+        if urlparse.urlsplit(self.inurl)[0]=='file':
+            self.infname = urllib.url2pathname(urlparse.urlsplit(self.inurl)[2])
+            self.infd = open(self.infname)
+        else:
+            # not a file url. download it.
+            source = urllib.urlopen(self.inurl)
+            self.infd, self.infname = tempfile.mkstemp(prefix="transcode-in-", suffix="." + self.inext)
+            self._files_to_clean_up_on_success.append(self.infname)
+            self._files_to_clean_up_on_error.append(self.infname)
+            while True:
+                chunk = source.read(1024*64)
+                if not chunk:
+                    break
+                os.write(self.infd,chunk)
+            os.lseek(self.infd,0,0)
+
+        self.outfd, self.outfname = tempfile.mkstemp(prefix="transcode-out-", suffix="." + self.tofmt)
+        self._files_to_clean_up_on_error.append(self.outfname)
+
+        self.errfh, self.errfname = tempfile.mkstemp(prefix="transcode-", suffix=".log")
+        self.outurl = urlparse.urlunsplit(["file", None, self.outfname, None, None])
+        self._files_to_clean_up_on_success.append(self.errfname)
+        log.debug("Reading from " + self.infname + " (" + self.inurl + ")")
+        log.debug("Outputting to " + self.outfname + " (" + self.outurl + ")")
+        log.debug("Errors to " + self.errfname)
+
+    def start_codec(self):
+        # assemble command line for encoder
+        encoder = []
+
+        encoder += self.encode[self.tofmt]
+
+        if have_tagpy and self.tofmt in self.tagopt:
+            taginfo = tagpywrap(self.infname)
+            for f in taginfo.allfields:
+                if (f in taginfo and f in self.tagopt[self.tofmt]):
+                    inf = taginfo[f]
+                    opt = self.tagopt[self.tofmt][f]
+                    log.debug("  %s = %s %s" % (f, opt, inf))
+                    # If we have a substitution, make it. If
+                    # not append the info as a separate
+                    # arg. Note that the tag options are
+                    # passed in as the second option because a
+                    # lot of programs don't parse options
+                    # after their file list.
+                    if type(inf)==type(u''):
+                        inf = inf.encode('utf8')
+                    else:
+                        inf = str(inf)
+                    if ('%s' in opt):
+                        opt = opt.replace('%s', inf)
+                        encoder.insert(1, opt)
+                    else:
+                        encoder.insert(1, opt)
+                        encoder.insert(2, inf)
+
+        log.debug("decoder -> " + str(self.decode[self.inext]))
+        log.debug("encoder -> " + str(encoder))
+        self.decoder = subprocess.Popen(self.decode[self.inext], stdin=self.infd, stdout=subprocess.PIPE, stderr=self.errfh)
+        self.encoder = subprocess.Popen(encoder, stdin=self.decoder.stdout, stdout=self.outfd, stderr=self.errfh)
+        log.debug("Processes connected")
 
     def isfinished(self):
-        if (self.errormsg != None):
-            return(True)
+        if self.errormsg is not None: # redundant?
+            return True
 
         rtn = self.encoder.poll()
-        if (rtn == None):
-            return(False)
+        if rtn == None:
+            return False
 
-        if (rtn == 0):
-            os.unlink(self.errfname)
+        if rtn == 0:
             self.errormsg = None
         else:
             log.debug("error in transcode, please review " + self.errfname)
-            self.errormsg = "Unable to transcode, please review " + self.errfname
+            self.errormsg = "Unable to transcode\n\n"+open(self.errfname).read()
+
+        return True
+
+    def clean_up(self):
+        if self.errormsg:
+            list_of_filenames = self._files_to_clean_up_on_error
+        else:
+            list_of_filenames = self._files_to_clean_up_on_success
+        for filename in list_of_filenames:
+            log.debug("deleting "+filename)
             try:
-                os.unlink(self.outfname)
+                os.unlink(filename)
             except:
                 pass
-
-        return(True)
 
 ############################################################################
 # amaKode
@@ -266,6 +355,7 @@ class amaKode(object):
 
     def __init__(self, args):
         """ Main loop waits for something to do then does it """
+        self.last_message_time = 0
         log.debug("Started.")
         if (have_tagpy):
             log.debug("Using tagpy")
@@ -274,7 +364,7 @@ class amaKode(object):
 
         self.readSettings()
 
-        self.queue = QueueMgr(callback = self.notify, maxjobs = 1)
+        self.queue = QueueMgr(callback = self.job_finished)
 
         while True:
             # Check for finished jobs, etc
@@ -287,6 +377,7 @@ class amaKode(object):
                 if line:
                     self.customEvent(line)
                 else:
+                    debug.log("exiting...")
                     break
 
     def readSettings(self):
@@ -324,14 +415,24 @@ class amaKode(object):
         newjob = TranscodeJob(args[1], args[2])
         self.queue.add(newjob)
 
-    def notify(self, job):
+    def job_finished(self,job):
+        self.notify_amarok_that_job_is_finished(job)
+        job.clean_up()
+
+    def notify_amarok_that_job_is_finished(self, job):
         """ Report to amarok that the job is done """
-        if (job.errormsg == None):
-            log.debug("Job " + job.inurl + " completed successfully")
-            os.system("dcop amarok mediabrowser transcodingFinished " + re.escape(job.inurl) + " " + re.escape(job.outurl))
-        else:
+        if job.errormsg:
             log.debug("Job " + job.inurl + " failed - " + job.errormsg)
-            os.system("dcop amarok mediabrowser transcodingFinished " + re.escape(job.inurl) + "\"\"")
+            subprocess.call(['dcop','amarok','mediabrowser','transcodingFinished',job.inurl,''])
+
+            # get Amarok to pop up our error message, but not too frequently
+            now = time.time()
+            if now>self.last_message_time+10:
+                subprocess.call(['dcop','amarok','playlist','popupMessage',job.errormsg])
+                last_message_time = now
+        else:
+            log.debug("Job " + job.inurl + " completed successfully")
+            subprocess.call(['dcop','amarok','mediabrowser','transcodingFinished',job.inurl,job.outurl])
 
     def quit(self):
         log.debug("quitting")
@@ -342,14 +443,27 @@ class amaKode(object):
 
 ############################################################################
 
-def debug(message):
-    """ Prints debug message to stdout """
-    log.debug(message)
+def is_on_path(name):
+    path = os.environ.get('PATH')
+    if not path:
+        path = os.defpath
+    for directory in path.split(os.pathsep):
+        candidate = os.path.join(directory,name)
+        if os.path.exists(candidate):
+            # well, its present. We havent checked whether it is excecutable and there are
+            # still plenty of other things that could go wrong when excecuting it.
+            return True
 
 def onStop(signum, stackframe):
     """ Called when script is stopped by user """
     log.debug("signalled exit")
     sys.exit()
+
+def number_of_processors():
+    try:
+        return os.sysconf('SC_NPROCESSORS_ONLN')
+    except:
+        return 1
 
 def initLog():
     # Init our logging
@@ -375,32 +489,7 @@ def initLog():
     log.addHandler(logstderr)
     return(log)
 
-def reportJob(job):
-    """ Report to amarok that the job is done """
-    if (job.errormsg == None):
-        log.debug("Job " + job.inurl + " completed successfully")
-        log.debug("dcop amarok mediabrowser transcodingFinished " + job.inurl + " " + job.outurl)
-    else:
-        log.debug("Job " + job.inurl + " failed - " + job.errormsg)
-        log.debug("dcop amarok mediabrowser transcodingFinished " + job.inurl + "\"\"")
 
-if __name__ == "__main__":
-    initLog()
-    signal.signal(signal.SIGINT, onStop)
-    signal.signal(signal.SIGHUP, onStop)
-    signal.signal(signal.SIGTERM, onStop)
-    if 1:
-        # Run normal application
-        app = amaKode(sys.argv)
-    else:
-        # Quick test case
-        q = QueueMgr(reportJob)
-        j = TranscodeJob("file:///tmp/test.mp3", "ogg")
-        q.add(j)
-        j2 = TranscodeJob("file:///tmp/test2.mp3", "m4a")
-        q.add(j2)
-        while not q.isidle():
-            q.poll()
-            res = select.select([], [], [], 1)
 
-        log.debug("jobs all done")
+if __name__=='__main__':
+    main()
