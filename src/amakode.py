@@ -320,12 +320,8 @@ class amaKode(object):
             return
 
         log.debug("transcoding " + args[1] + " to " + args[2])
-        try:
-            newjob = TranscodeJob(args[1], args[2])
-        except:
-            log.debug("Can't create transcoding job")
-            os.system("dcop amarok mediabrowser transcodingFinished " + re.escape(args[1]) + "\"\"")
-            
+
+        newjob = TranscodeJob(args[1], args[2])
         self.queue.add(newjob)
 
     def notify(self, job):
