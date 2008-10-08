@@ -9,8 +9,8 @@
 # The only user servicable parts are the encode/decode (line 103) and the
 # number of concurrent jobs to run (line 225)
 #
-# The optional module tagpy (http://news.tiker.net/software/tagpy) is used 
-# for tag information processing. This allows for writing tags into the 
+# The optional module tagpy (http://news.tiker.net/software/tagpy) is used
+# for tag information processing. This allows for writing tags into the
 # transcoded files.
 #
 ############################################################################
@@ -69,13 +69,13 @@ class tagpywrap(dict):
     textfields = ['album', 'artist', 'title', 'comment', 'genre']
     numfields = ['year', 'track']
     allfields = textfields + numfields
-    
+
     def __init__(self, url):
         f = urllib.urlopen(url)
 
         self.tagInfo = tagpy.FileRef(f.fp.name).tag()
         f.close()
-    
+
         self['album'] = self.tagInfo.album.strip()
         self['artist'] = self.tagInfo.artist.strip()
         self['title'] = self.tagInfo.title.strip()
@@ -94,16 +94,16 @@ class tagpywrap(dict):
 class QueueMgr(object):
     queuedjobs = []
     activejobs = []
-    
+
     def __init__(self, callback = None, maxjobs = 2):
         self.callback = callback
         self.maxjobs = maxjobs
         pass
-    
+
     def add(self, job):
         log.debug("Job added")
         self.queuedjobs.append(job)
-    
+
     def poll(self):
         """ Poll active jobs and check if we should make a new job active """
         if (len(self.activejobs) == 0):
@@ -129,7 +129,7 @@ class QueueMgr(object):
     def isidle(self):
         """ Returns true if both queues are empty """
         return(len(self.queuedjobs) == 0 and len(self.activejobs) == 0)
-               
+
 class TranscodeJob(object):
     # Programs used to decode (to a wav stream)
     decode = {}
@@ -172,7 +172,7 @@ class TranscodeJob(object):
         else:
             log.debug("unable to decode " + self.inext)
             raise KeyError("no available decoder")
-        
+
         if (self.tofmt in self.encode):
             log.debug("can encode with " + str(self.encode[self.tofmt]))
         else:
@@ -190,11 +190,11 @@ class TranscodeJob(object):
             self.outurl = urlparse.urlunsplit(["file", None, self.outfname, None, None])
             log.debug("Outputting to " + self.outfname + " " + self.outurl + ")")
             log.debug("Errors to " + self.errfname)
-            
+
             # assemble command line for encoder
             encoder = []
             encoder += self.encode[self.tofmt]
-            
+
             try:
                 if (have_tagpy and self.tofmt in self.tagopt):
                     taginfo = tagpywrap(self.inurl)
@@ -236,7 +236,7 @@ class TranscodeJob(object):
                 os.unlink(self.outfname)
             except:
                 pass
-        
+
     def isfinished(self):
         if (self.errormsg != None):
             return(True)
@@ -255,9 +255,9 @@ class TranscodeJob(object):
                 os.unlink(self.outfname)
             except:
                 pass
-            
+
         return(True)
-    
+
 ############################################################################
 # amaKode
 ############################################################################
@@ -271,11 +271,11 @@ class amaKode(object):
             log.debug("Using tagpy")
         else:
             log.debug("Warning: tagpy is unavailable")
-            
+
         self.readSettings()
 
         self.queue = QueueMgr(callback = self.notify, maxjobs = 1)
-        
+
         while True:
             # Check for finished jobs, etc
             self.queue.poll()
@@ -288,7 +288,7 @@ class amaKode(object):
                     self.customEvent(line)
                 else:
                     break
-            
+
     def readSettings(self):
         """ Reads settings from configuration file """
 
@@ -383,8 +383,8 @@ def reportJob(job):
     else:
         log.debug("Job " + job.inurl + " failed - " + job.errormsg)
         log.debug("dcop amarok mediabrowser transcodingFinished " + job.inurl + "\"\"")
-    
-if __name__ == "__main__":  
+
+if __name__ == "__main__":
     initLog()
     signal.signal(signal.SIGINT, onStop)
     signal.signal(signal.SIGHUP, onStop)
@@ -402,5 +402,5 @@ if __name__ == "__main__":
         while not q.isidle():
             q.poll()
             res = select.select([], [], [], 1)
-        
+
         log.debug("jobs all done")
