@@ -1,19 +1,37 @@
 Amakode Changelog
 
+Version 1.8
+
+Support for reading tags from mp4 files thanks to victor rajewski
+
+
+Version 1.7
+
+(never released on kde-apps)
+
+Better handling of errors. Amakode now checks that its slave programs
+(lame, etc) are properly installed. Any errors (either from Amakode
+or from those slave programs) are now reported using Amarok popups.
+
+Transcoding from urls
+
+Fixed some temp file leaks
+
+
 Version 1.6
 
-2008-09-07  First import from Daniel O'Connor at
-            http://www.kde-apps.org/content/show.php/AmaKode?content=48218
-            Changelog before that date says:
-                Fix problems with newer versions of mpg123 (kontakt@lombacher.net)
-                Add output support for wav.
+First import from Daniel O'Connor at
+http://www.kde-apps.org/content/show.php/AmaKode?content=48218
+Changelog before that date says:
+    Fix problems with newer versions of mpg123 (kontakt@lombacher.net)
+    Add output support for wav.
 
-2008-09-07  Better logging of errors for debugging
+Better logging of errors for debugging
 
-            Fix non-ascii tag handling
+Fix non-ascii tag handling
 
-            Log file are now written to the working directory prepared by amarok:
-            ~/.kde/share/apps/amarok/scripts-data/amakode.log
-            (previously they were written to /tmp/amakode.log;
-            this prevented use by multiple users on the same machine and
-            was vulnerable to symlink attacks)
+Log file are now written to the working directory prepared by amarok:
+~/.kde/share/apps/amarok/scripts-data/amakode.log
+(previously they were written to /tmp/amakode.log;
+this prevented use by multiple users on the same machine and
+was vulnerable to symlink attacks)
