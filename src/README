@@ -8,7 +8,8 @@
 so you may also need to install one or more of following using your package manager:</p>
 
 <ul>
-<li><b>tagpy</b> library - to preserve tags.</li>
+<li><b>tagpy</b> library - to preserve tags from mp3/ogg/flac files</li>
+<li><b>AtomicParsley</b> - to preserve tags from mp4 files</li>
 <li><b>ogg123</b> - if you want to decode ogg</li>
 <li><b>mpg123</b> - if you want decode mp3</li>
 <li><b>mplayer</b> - if you want to decode mp4</li>

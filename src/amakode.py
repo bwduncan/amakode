@@ -42,7 +42,7 @@
 #
 ############################################################################
 
-__version__ = "1.3"
+__version__ = "1.8"
 
 import ConfigParser
 import os
@@ -60,12 +60,12 @@ import re
 import traceback
 import time
 from optparse import OptionParser
+from sets import Set
 
 try:
     import tagpy
-    have_tagpy = True
 except ImportError, e:
-    have_tagpy = False
+    tagpy = None
 
 def main():
     parser = OptionParser()
@@ -83,16 +83,6 @@ def main():
         quick_test()
     else:
         # Run normal application
-        if True:
-            if not have_tagpy:
-                if os.path.exists('/var/lib/apt'):
-                    package = 'python-tagpy' # debian-based systems
-                else:
-                    package = 'tagpy' # rpm-based and gentoo
-                tagpymsg = 'Amakode can not find the tagpy library. Please install the '+package+' package, '
-                tagpymsg += 'otherwise any files copied to your media player will not have tags.'
-                
-                subprocess.call(['dcop','amarok','playlist','popupMessage',tagpymsg])
         try:
             app = amaKode(sys.argv)
         except:
@@ -105,14 +95,57 @@ def quick_test():
         log.debug('FINISHED %r, errormsg=%s'%(job,job.errormsg))
         job.clean_up()
     q = QueueMgr(reportJob)
-    j = TranscodeJob("file:test/test.mp3", "ogg")
-    q.add(j)
+    j1 = TranscodeJob("file:test/test1.m4a", "ogg")
+    q.add(j1)
     j2 = TranscodeJob("file:test/test2.mp3", "ogg")
     q.add(j2)
     while not q.isidle():
         q.poll()
         res = select.select([], [], [], 1)
     log.debug("jobs all done")
+
+
+
+def get_tags(filename,ext):
+    # list of mp4 extensions to use atomicparsley with 
+    # (tagpy seems to silently die on mp4/m4a files)
+    mp4_ext = ("mp4", "m4a")
+
+    if ext in mp4_ext:
+        if is_on_path('AtomicParsley'):
+            return atomicparsleywrap(filename)
+        else:
+            notify_missing_package('AtomicParsley',ext,'atomicparsley','atomicparsley')
+            return None
+    else:
+        if tagpy is not None:
+            return tagpywrap(filename)
+        else:
+            notify_missing_package('TagPy',ext,'python-tagpy','tagpy')
+            return None
+
+class atomicparsleywrap(dict):
+    textfields = ['album', 'artist', 'title', 'comment', 'genre']
+    apfields =   ['alb',   'art',    'nam',   'cmt',     'gnre']
+    numfields = ['year', 'track']
+    allfields = textfields + numfields
+
+    def __init__(self, filename):
+        ap = subprocess.Popen(['AtomicParsley',filename,'-t'], stdout=subprocess.PIPE)
+        for line in ap.stdout:
+            fields = line.rstrip().split(None, 3)
+            if fields[0]=="Atom":
+                for apfield,textfield in zip(self.apfields,self.textfields):
+                    if fields[1].lower().find(apfield)!=-1:
+                        self[textfield] = unicode(fields[3],'utf8')
+                        break
+                else:
+                    if fields[1].lower().find('day')!=-1:
+                        try: self['year'] = int(fields[3])
+                        except ValueError: self['year'] = 0
+                    elif fields[1].lower().find('trkn')!=-1:
+                        try: self['track'] = int(fields[3].split()[0])
+                        except ValueError: self['track'] = 0
 
 class tagpywrap(dict):
     textfields = ['album', 'artist', 'title', 'comment', 'genre']
@@ -137,6 +170,20 @@ class tagpywrap(dict):
         for i in self.numfields:
             if (self[i] == 0):
                 del self[i]
+
+already_notified_missing_package = Set()
+def notify_missing_package(name,ext,debian_package,rpm_package):
+    if name in already_notified_missing_package:
+        return
+    already_notified_missing_package.add(name)
+    if os.path.exists('/var/lib/apt'):
+        # smells like a debian system, so use the debian package name
+        package = debian_package
+    else:
+        package = rpm_package # rpm-based and gentoo seem to be mostly the same
+    tagpymsg = 'Amakode can not find the '+name+' library. Please install the '+package+' package, '
+    tagpymsg += 'otherwise any '+ext+' files copied to your media player will not have tags.'
+    subprocess.call(['dcop','amarok','playlist','popupMessage',tagpymsg])
 
 class QueueMgr(object):
     queuedjobs = []
@@ -289,29 +336,30 @@ class TranscodeJob(object):
 
         encoder += self.encode[self.tofmt]
 
-        if have_tagpy and self.tofmt in self.tagopt:
-            taginfo = tagpywrap(self.infname)
-            for f in taginfo.allfields:
-                if (f in taginfo and f in self.tagopt[self.tofmt]):
-                    inf = taginfo[f]
-                    opt = self.tagopt[self.tofmt][f]
-                    log.debug("  %s = %s %s" % (f, opt, inf))
-                    # If we have a substitution, make it. If
-                    # not append the info as a separate
-                    # arg. Note that the tag options are
-                    # passed in as the second option because a
-                    # lot of programs don't parse options
-                    # after their file list.
-                    if type(inf)==type(u''):
-                        inf = inf.encode('utf8')
-                    else:
-                        inf = str(inf)
-                    if ('%s' in opt):
-                        opt = opt.replace('%s', inf)
-                        encoder.insert(1, opt)
-                    else:
-                        encoder.insert(1, opt)
-                        encoder.insert(2, inf)
+        if self.tofmt in self.tagopt:
+            taginfo = get_tags(self.infname,self.inext)
+            if taginfo:
+                for f in taginfo.allfields:
+                    if f in taginfo and f in self.tagopt[self.tofmt]:
+                        inf = taginfo[f]
+                        opt = self.tagopt[self.tofmt][f]
+                        log.debug("  %s = %s %s" % (f, opt, inf))
+                        # If we have a substitution, make it. If
+                        # not append the info as a separate
+                        # arg. Note that the tag options are
+                        # passed in as the second option because a
+                        # lot of programs don't parse options
+                        # after their file list.
+                        if type(inf)==type(u''):
+                            inf = inf.encode('utf8')
+                        else:
+                            inf = str(inf)
+                        if '%s' in opt:
+                            opt = opt.replace('%s', inf)
+                            encoder.insert(1, opt)
+                        else:
+                            encoder.insert(1, opt)
+                            encoder.insert(2, inf)
 
         log.debug("decoder -> " + str(self.decode[self.inext]))
         log.debug("encoder -> " + str(encoder))
@@ -357,10 +405,6 @@ class amaKode(object):
         """ Main loop waits for something to do then does it """
         self.last_message_time = 0
         log.debug("Started.")
-        if (have_tagpy):
-            log.debug("Using tagpy")
-        else:
-            log.debug("Warning: tagpy is unavailable")
 
         self.readSettings()
 
