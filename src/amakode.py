@@ -3,9 +3,6 @@
 ############################################################################
 # Transcoder for Amarok
 #
-# Depends on: Python 2.4
-#             tagpy (optional)
-#
 # The only user servicable parts are the encode/decode (line 103) and the
 # number of concurrent jobs to run (line 225)
 #
@@ -42,7 +39,7 @@
 #
 ############################################################################
 
-__version__ = "1.8"
+__version__ = "1.9"
 
 import ConfigParser
 import os
@@ -236,6 +233,7 @@ class TranscodeJob(object):
     decode["m4a"] = decode["mp4"]
     decode["flac"] = ["flac", "-d", "-c", "-"]
     decode["wav"] = ["cat"]
+    decode["mpc"] = ["mpcdec", "-", "-"]
 
     # Programs used to encode (from a wav stream)
     encode = {}
@@ -244,6 +242,7 @@ class TranscodeJob(object):
     encode["mp4"] = ["faac", "-wo", "/dev/stdout", "-"]
     encode["m4a"] = encode["mp4"]
     encode["wav"] = ["cat"]
+    encode["mpc"] = ["mpcenc", "--silent", "--standard", "-", "-"]
 
     # XXX: can't encode flac - it's wav parser chokes on mpg123's output, it does work
     # OK if passed through sox but we can't do that. If you really want flac modify
@@ -252,10 +251,11 @@ class TranscodeJob(object):
 
     # Options for output programs to store ID3 tag information
     tagopt = {}
-    tagopt["mp3"] = { "album" : "--tl", "artist" : "--ta", "title" : "--tt", "track" : "--tn" }
-    tagopt["ogg"] = { "album" : "-l", "artist" :  "-a", "title" : "-a", "track" : "-N" }
-    tagopt["mp4"] = { "album" : "--album", "artist" : "--artist", "title" : "--title", "track" : "--track" }
-    #tagopt["flac"] = { "album" : "-Talbum=%s", "artist" : "-Tartist=%s", "title" : "-Ttitle=%s", "track" : "-Ttracknumber=%s" }
+    tagopt["mp3"] = { "album":"--tl", "artist":"--ta", "title":"--tt", "track":"--tn" }
+    tagopt["ogg"] = { "album":"-l", "artist": "-a", "title":"-a", "track":"-N" }
+    tagopt["mp4"] = { "album":"--album", "artist":"--artist", "title":"--title", "track":"--track" }
+    #tagopt["flac"] = { "album":"-Talbum=%s", "artist":"-Tartist=%s", "title":"-Ttitle=%s", "track":"-Ttracknumber=%s" }
+    tagopt["mpc"] = { "album":"--album", "artist":"--artist", "title":"--title", "track":"--track" }
 
     def __init__(self, _inurl, _tofmt):
         self.errormsg = None
