@@ -131,7 +131,7 @@ class atomicparsleywrap(dict):
         ap = subprocess.Popen(['AtomicParsley',filename,'-t'], stdout=subprocess.PIPE)
         for line in ap.stdout:
             fields = line.rstrip().split(None, 3)
-            if fields[0]=="Atom":
+            if len(fields)==4 and fields[0]=="Atom":
                 for apfield,textfield in zip(self.apfields,self.textfields):
                     if fields[1].lower().find(apfield)!=-1:
                         self[textfield] = unicode(fields[3],'utf8')
