@@ -14,9 +14,11 @@ so you may also need to install one or more of following using your package mana
 <li><b>mpg123</b> - if you want decode mp3</li>
 <li><b>mplayer</b> - if you want to decode mp4</li>
 <li><b>flac</b> - if you want to decode flac</li>
+<li><b>mpcdec</b> - if you want to decode musepack</li>
 <li><b>oggenc</b> - if you want to encode ogg</li>
 <li><b>lame</b> - if you want to encode mp3</li>
 <li><b>faac</b> - if you want to encode mp4</li>
+<li><b>mpcenc</b> - if you want to encode musepack</li>
 </ul>
 
 
