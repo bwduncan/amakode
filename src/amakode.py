@@ -311,8 +311,8 @@ class TranscodeJob(object):
             # not a file url. download it.
             source = urllib.urlopen(self.inurl)
             self.infd, self.infname = tempfile.mkstemp(prefix="transcode-in-", suffix="." + self.inext)
-            self._files_to_clean_up_on_success.append(self.infname)
-            self._files_to_clean_up_on_error.append(self.infname)
+            self._files_to_clean_up_on_success.append((self.infd, self.infname))
+            self._files_to_clean_up_on_error.append((self.infd, self.infname))
             while True:
                 chunk = source.read(1024*64)
                 if not chunk:
@@ -321,11 +321,11 @@ class TranscodeJob(object):
             os.lseek(self.infd,0,0)
 
         self.outfd, self.outfname = tempfile.mkstemp(prefix="transcode-out-", suffix="." + self.tofmt)
-        self._files_to_clean_up_on_error.append(self.outfname)
+        self._files_to_clean_up_on_error.append((self.outfd, self.outfname))
 
         self.errfh, self.errfname = tempfile.mkstemp(prefix="transcode-", suffix=".log")
         self.outurl = urlparse.urlunsplit(["file", None, self.outfname, None, None])
-        self._files_to_clean_up_on_success.append(self.errfname)
+        self._files_to_clean_up_on_success.append((self.errfh, self.errfname))
         log.debug("Reading from " + self.infname + " (" + self.inurl + ")")
         log.debug("Outputting to " + self.outfname + " (" + self.outurl + ")")
         log.debug("Errors to " + self.errfname)
@@ -384,11 +384,14 @@ class TranscodeJob(object):
         return True
 
     def clean_up(self):
+        for (fd, filename) in self._files_to_clean_up_on_error,
+                self._files_to_clean_up_on_success:
+            os.close(fd)
         if self.errormsg:
-            list_of_filenames = self._files_to_clean_up_on_error
+            list_of_files = self._files_to_clean_up_on_error
         else:
-            list_of_filenames = self._files_to_clean_up_on_success
-        for filename in list_of_filenames:
+            list_of_files = self._files_to_clean_up_on_success
+        for (fd, filename) in list_of_files:
             log.debug("deleting "+filename)
             try:
                 os.unlink(filename)
