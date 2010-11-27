@@ -41,10 +41,8 @@
 
 __version__ = "1.9"
 
-import ConfigParser
 import os
 import sys
-import string
 import signal
 import logging
 import select
@@ -53,7 +51,6 @@ import tempfile
 from logging.handlers import RotatingFileHandler
 import urllib
 import urlparse
-import re
 import traceback
 import time
 from optparse import OptionParser
@@ -191,7 +188,6 @@ class QueueMgr(object):
 
         self.maxjobs = number_of_processors()
         log.debug('Using %d concurrent jobs because it seems there are %d processors' % (self.maxjobs,self.maxjobs))
-        pass
 
     def add(self, job):
         log.debug("Job added")
@@ -409,8 +405,6 @@ class amaKode(object):
         self.last_message_time = 0
         log.debug("Started.")
 
-        self.readSettings()
-
         self.queue = QueueMgr(callback = self.job_finished)
 
         while True:
@@ -425,17 +419,8 @@ class amaKode(object):
                 if line:
                     self.customEvent(line)
                 else:
-                    debug.log("exiting...")
+                    log.debug("exiting...")
                     break
-
-    def readSettings(self):
-        """ Reads settings from configuration file """
-
-        try:
-            foovar = config.get("General", "foo")
-
-        except:
-            log.debug("No config file found, using defaults.")
 
     def customEvent(self, string):
         """ Handles notifications """
@@ -453,7 +438,7 @@ class amaKode(object):
 
     def transcode(self, line):
         """ Called when requested to transcode a track """
-        args = string.split(line)
+        args = line.split()
         if (len(args) != 3):
             log.debug("Invalid transcode command")
             return
