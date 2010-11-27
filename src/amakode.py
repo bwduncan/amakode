@@ -414,7 +414,8 @@ class amaKode(object):
             # Check for finished jobs, etc
             self.queue.poll()
             # Check if there's anything waiting on stdin
-            res = select.select([sys.stdin.fileno()], [], [], 0.1)
+            res = select.select([sys.stdin.fileno()], [], [], 
+                    not self.queue.isidle() and 0.1 or None)
             if (sys.stdin.fileno() in res[0]):
                 # Let's hope we got a whole line or we stall here
                 line = sys.stdin.readline()
