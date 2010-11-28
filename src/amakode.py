@@ -3,9 +3,6 @@
 ############################################################################
 # Transcoder for Amarok
 #
-# The only user servicable parts are the encode/decode (line 103) and the
-# number of concurrent jobs to run (line 225)
-#
 # The optional module tagpy (http://news.tiker.net/software/tagpy) is used
 # for tag information processing. This allows for writing tags into the
 # transcoded files.
@@ -40,7 +37,7 @@
 #
 ############################################################################
 
-__version__ = "1.9"
+__version__ = "2.0"
 
 import os
 import sys

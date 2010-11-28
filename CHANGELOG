@@ -1,5 +1,13 @@
 Amakode Changelog
 
+Version 2.0
+
+Add commandline capability (pass a list of files, optional --format defaults
+    to ogg)
+Fix leaking file descriptors.
+Fix select timeout.
+General code cleanup thanks to pep8 and pylint.
+
 Version 1.9
 
 Musepack support thanks to Luigi Curzi and Louis-Guillaume Fortin.
