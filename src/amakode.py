@@ -194,25 +194,18 @@ class QueueMgr(object):
 
     def poll(self):
         """ Poll active jobs and check if we should make a new job active """
-        if len(self.activejobs) == 0:
-            needajob = True
-        else:
-            needajob = False
 
         for j in self.activejobs:
             if j.isfinished():
                 log.debug("job is done")
-                needajob = True
                 self.activejobs.remove(j)
                 if (self.callback != None):
                     self.callback(j)
 
-        if needajob:
-            #log.debug("Number of queued jobs = " + str(len(self.queuedjobs)) + ", number of active jobs = " + str(len(self.activejobs)))
-            while len(self.queuedjobs) > 0 and len(self.activejobs) < self.maxjobs:
-                newjob = self.queuedjobs.pop(0)
-                newjob.start()
-                self.activejobs.append(newjob)
+        while len(self.queuedjobs) > 0 and len(self.activejobs) < self.maxjobs:
+            newjob = self.queuedjobs.pop(0)
+            newjob.start()
+            self.activejobs.append(newjob)
 
     def isidle(self):
         """ Returns true if both queues are empty """
