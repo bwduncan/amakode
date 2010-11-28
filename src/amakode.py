@@ -51,7 +51,6 @@ import tempfile
 from logging.handlers import RotatingFileHandler
 import urllib
 import urlparse
-import traceback
 import time
 from optparse import OptionParser
 from sets import Set
@@ -77,11 +76,11 @@ def main():
         quick_test()
     else:
         # Run normal application
+        app = amaKode()
         try:
-            app = amaKode(sys.argv)
-        except:
-            for line in traceback.format_exc().split('\n'):
-                log.debug(line)
+            app.run()
+        except Exception:
+            log.exception()
 
 def quick_test():
     # Quick test case
@@ -269,9 +268,7 @@ class TranscodeJob(object):
             self.prepare_files()
             self.start_codec()
         except:
-            log.debug("Failed to start")
-            for line in traceback.format_exc().split('\n'):
-                log.debug(line)
+            log.exception("Failed to start")
             self.errormsg = str(sys.exc_info()[1])
 
     def check_codecs(self):
@@ -400,13 +397,13 @@ class TranscodeJob(object):
 class amaKode(object):
     """ The main application"""
 
-    def __init__(self, args):
+    def __init__(self):
         """ Main loop waits for something to do then does it """
         self.last_message_time = 0
-        log.debug("Started.")
-
         self.queue = QueueMgr(callback = self.job_finished)
 
+    def run(self):
+        log.debug("Started.")
         while True:
             # Check for finished jobs, etc
             self.queue.poll()
