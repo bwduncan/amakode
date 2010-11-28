@@ -392,7 +392,7 @@ class TranscodeJob(object):
         return True
 
     def clean_up(self):
-        for (fd, filename) in self._files_to_clean_up_on_error,
+        for (fd, filename) in self._files_to_clean_up_on_error + \
                 self._files_to_clean_up_on_success:
             os.close(fd)
         if self.errormsg:
