@@ -452,7 +452,7 @@ class amaKode(object):
             now = time.time()
             if now>self.last_message_time+10:
                 subprocess.call(['dcop','amarok','playlist','popupMessage',job.errormsg])
-                last_message_time = now
+                self.last_message_time = now
         else:
             log.debug("Job " + job.inurl + " completed successfully")
             subprocess.call(['dcop','amarok','mediabrowser','transcodingFinished',job.inurl,job.outurl])
