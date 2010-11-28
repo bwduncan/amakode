@@ -66,6 +66,9 @@ def main():
                     action="store_true", dest="test", default=False,
                     help="run a test")
     (options, args) = parser.parse_args()
+    parser.add_option("-f", "--format",
+                    action="store", dest="format",
+                    default="ogg", help="output format")
 
     initLog()
     signal.signal(signal.SIGINT, onStop)
@@ -74,6 +77,8 @@ def main():
 
     if options.test:
         quick_test()
+    elif args:
+        process_cmdline(options, args)
     else:
         # Run normal application
         app = amaKode()
@@ -81,6 +86,23 @@ def main():
             app.run()
         except Exception:
             log.exception()
+
+
+def process_cmdline(options, args):
+    def finished(job):
+        log.debug('FINISHED %r, errormsg=%s' % (job, job.errormsg))
+        filename = job.inurl[5:]
+        os.rename(job.outfname,
+            os.path.splitext(filename)[0] + "." + options.format)
+        job.clean_up()
+    q = QueueMgr(finished)
+    for arg in args:
+        q.add(TranscodeJob("file:%s" % arg, options.format))
+    while not q.isidle():
+        q.poll()
+        res = select.select([], [], [], 1)
+    log.debug('FINSIHED!')
+
 
 def quick_test():
     # Quick test case
