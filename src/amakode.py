@@ -87,7 +87,7 @@ def main():
         try:
             app.run()
         except Exception:
-            log.exception()
+            log.exception("Exception caught in main program")
 
 
 def process_cmdline(options, args):
@@ -102,7 +102,7 @@ def process_cmdline(options, args):
         q.add(TranscodeJob("file:%s" % arg, options.format))
     while not q.isidle():
         q.poll()
-        res = select.select([], [], [], 1)
+        select.select([], [], [], 1)
     log.debug('FINSIHED!')
 
 
@@ -118,7 +118,7 @@ def quick_test():
     q.add(j2)
     while not q.isidle():
         q.poll()
-        res = select.select([], [], [], 1)
+        select.select([], [], [], 1)
     log.debug("jobs all done")
 
 
@@ -324,7 +324,7 @@ class TranscodeJob(object):
             self.check_codecs()
             self.prepare_files()
             self.start_codec()
-        except:
+        except Exception:
             log.exception("Failed to start")
             self.errormsg = str(sys.exc_info()[1])
 
