@@ -15,6 +15,7 @@
 # Copyright (C) 2007 Daniel O'Connor. All rights reserved.
 # Copyright (C) 2007 Jens Zurheide. All rights reserved.
 # Copyright (C) 2008 Toby Dickenson. All rights reserved.
+# Copyright (C) 2010 Bruce Duncan.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
